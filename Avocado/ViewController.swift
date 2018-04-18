@@ -1,5 +1,6 @@
 
 import UIKit
+import CryptoSwift
 
 class ViewController: UIViewController {
 
@@ -7,6 +8,9 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         
         view.backgroundColor = .white
+        
+        let h = "test".sha1()
+        print(h)
     }
 
 }
