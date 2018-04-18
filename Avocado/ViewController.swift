@@ -58,7 +58,6 @@ class ViewController: UIViewController {
     
     @objc private func didEnterBackground() {
         update(for: .loggedOut)
-        print("background")
     }
     
     @objc private func didBecomeActive() {
@@ -142,11 +141,17 @@ class ViewController: UIViewController {
         case .loggedIn:
             isLoggedIn = true
             stackView?.isHidden = true
+            setInfoHeader(with: "Avocado", subtitle: "Double tap the avocado to log out")
             
             avocadoLabel = UILabel()
             avocadoLabel.translatesAutoresizingMaskIntoConstraints = false
-            avocadoLabel.font = UIFont.systemFont(ofSize: 50)
+            avocadoLabel.font = UIFont.systemFont(ofSize: 60)
             avocadoLabel.text = "🥑"
+            
+            let gesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+            gesture.numberOfTapsRequired = 2
+            avocadoLabel.isUserInteractionEnabled = true
+            avocadoLabel.addGestureRecognizer(gesture)
             
             view.addSubview(avocadoLabel)
             let constraints: [NSLayoutConstraint] = [
@@ -157,8 +162,9 @@ class ViewController: UIViewController {
 
         case .loggedOut:
             isLoggedIn = false
-            avocadoLabel?.isHidden = true
             stackView?.isHidden = false
+            avocadoLabel?.isHidden = true
+            setInfoHeader(with: "Avocado", subtitle: "Login to view the avocado")
             
             if let emailField = view.viewWithTag(TextFieldTag.email.rawValue) as? UITextField {
                 emailField.text = savedEmail
@@ -167,6 +173,13 @@ class ViewController: UIViewController {
                 passwordField.text = String()
             }
         }
+    }
+    
+    
+    // MARK: Actions
+    
+    @objc private func handleDoubleTap() {
+        logOut()
     }
     
     // MARK: Login Helpers
@@ -232,6 +245,26 @@ class ViewController: UIViewController {
         }
         catch let e {
             print("Error saving to the keychain: \(e.localizedDescription).")
+        }
+    }
+    
+    private func logOut() {
+        guard let email = savedEmail else {
+            return
+        }
+        
+        let item = KeychainPasswordItem(service: appService, account: email)
+        
+        do {
+            try item.deleteItem()
+            
+            UserDefaults.standard.removeObject(forKey: DefaultKeys.email.rawValue)
+            UserDefaults.standard.synchronize()
+            
+            update(for: .loggedOut)
+        }
+        catch let e {
+            print("Error deleting from the keychain: \(e.localizedDescription).")
         }
     }
     
