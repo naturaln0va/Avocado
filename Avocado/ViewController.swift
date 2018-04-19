@@ -73,7 +73,7 @@ class ViewController: UIViewController {
     func setInfoHeader(with title: String, subtitle: String) {
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         titleLabel.textAlignment = .center
         
         let subtitleLabel = UILabel()
@@ -101,12 +101,26 @@ class ViewController: UIViewController {
         stackView.spacing = padding
         stackView.axis = .vertical
         
-        view.addSubview(stackView)
+        avocadoLabel = UILabel()
+        avocadoLabel.translatesAutoresizingMaskIntoConstraints = false
+        avocadoLabel.font = UIFont.systemFont(ofSize: 54)
+        avocadoLabel.isHidden = true
+        avocadoLabel.text = "🥑"
         
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        gesture.numberOfTapsRequired = 2
+        avocadoLabel.isUserInteractionEnabled = true
+        avocadoLabel.addGestureRecognizer(gesture)
+        
+        view.addSubview(stackView)
+        view.addSubview(avocadoLabel)
+
         let constraints: [NSLayoutConstraint] = [
             stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: padding),
             stackView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: padding),
-            stackView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -padding)
+            stackView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -padding),
+            avocadoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            avocadoLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ]
         NSLayoutConstraint.activate(constraints)
     }
@@ -137,45 +151,32 @@ class ViewController: UIViewController {
     }
     
     private func update(for authState: AuthState) {
+        isLoggedIn = authState == .loggedIn
+        stackView?.isHidden = isLoggedIn
+        avocadoLabel?.isHidden = !isLoggedIn
+
         switch authState {
         case .loggedIn:
-            isLoggedIn = true
-            stackView?.isHidden = true
             setInfoHeader(with: "Avocado", subtitle: "Double tap the avocado to log out")
-            
-            avocadoLabel = UILabel()
-            avocadoLabel.translatesAutoresizingMaskIntoConstraints = false
-            avocadoLabel.font = UIFont.systemFont(ofSize: 60)
-            avocadoLabel.text = "🥑"
-            
-            let gesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
-            gesture.numberOfTapsRequired = 2
-            avocadoLabel.isUserInteractionEnabled = true
-            avocadoLabel.addGestureRecognizer(gesture)
-            
-            view.addSubview(avocadoLabel)
-            let constraints: [NSLayoutConstraint] = [
-                avocadoLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                avocadoLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ]
-            NSLayoutConstraint.activate(constraints)
 
         case .loggedOut:
-            isLoggedIn = false
-            stackView?.isHidden = false
-            avocadoLabel?.isHidden = true
             setInfoHeader(with: "Avocado", subtitle: "Login to view the avocado")
             
-            if let emailField = view.viewWithTag(TextFieldTag.email.rawValue) as? UITextField {
-                emailField.text = savedEmail
-            }
-            if let passwordField = view.viewWithTag(TextFieldTag.password.rawValue) as? UITextField {
-                passwordField.text = String()
-            }
+            field(for: .email)?.text = savedEmail
+            field(for: .password)?.text = ""
         }
     }
     
+    // MARK: View Helpers
     
+    private func field(for fieldTag: TextFieldTag) -> UITextField? {
+        return view.viewWithTag(fieldTag.rawValue) as? UITextField
+    }
+    
+    private func input(for fieldTag: TextFieldTag) -> String? {
+        return field(for: fieldTag)?.text
+    }
+
     // MARK: Actions
     
     @objc private func handleDoubleTap() {
@@ -200,14 +201,6 @@ class ViewController: UIViewController {
         catch {
             return false
         }
-    }
-    
-    private func input(for fieldTag: TextFieldTag) -> String? {
-        guard let textField = view.viewWithTag(fieldTag.rawValue) as? UITextField else {
-            return nil
-        }
-        
-        return textField.text
     }
     
     private func attemptLogin() {
@@ -306,7 +299,7 @@ class ViewController: UIViewController {
 extension ViewController: UITextFieldDelegate {
     
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        if let passwordField = view.viewWithTag(TextFieldTag.password.rawValue) as? UITextField, textField.tag == TextFieldTag.email.rawValue {
+        if let passwordField = field(for: .password), textField.tag == TextFieldTag.email.rawValue {
             if (passwordField.text?.count ?? 0) > 0 {
                 attemptLogin()
             }
