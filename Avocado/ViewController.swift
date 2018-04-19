@@ -21,8 +21,9 @@ class ViewController: UIViewController {
     }
     
     private var stackView: UIStackView!
+    private var actionButton: UIButton!
     private var avocadoLabel: UILabel!
-    
+
     private var isLoggedIn = false
 
     override func viewDidLoad() {
@@ -50,8 +51,8 @@ class ViewController: UIViewController {
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(didBecomeActive),
-            name: .UIApplicationDidBecomeActive,
+            selector: #selector(willEnterForeground),
+            name: .UIApplicationWillEnterForeground,
             object: nil
         )
     }
@@ -60,11 +61,7 @@ class ViewController: UIViewController {
         update(for: .loggedOut)
     }
     
-    @objc private func didBecomeActive() {
-        guard !isLoggedIn else {
-            return
-        }
-        
+    @objc private func willEnterForeground() {
         attemptBiometrics()
     }
     
@@ -94,8 +91,16 @@ class ViewController: UIViewController {
         
         let emailField = makeTextField(with: .email)
         let passwordField = makeTextField(with: .password)
-        stackView = UIStackView(arrangedSubviews: [emailField, passwordField])
         
+        actionButton = UIButton(type: .system)
+        actionButton.addTarget(
+            self,
+            action: #selector(actionButtonPressed),
+            for: .primaryActionTriggered
+        )
+        updateActionButtonTitle()
+
+        stackView = UIStackView(arrangedSubviews: [emailField, passwordField, actionButton])
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.alignment = .fill
         stackView.spacing = padding
@@ -150,10 +155,32 @@ class ViewController: UIViewController {
         return textField
     }
     
+    private func updateActionButtonTitle() {
+        let actionTitle: String
+        
+        let context = LAContext()
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) && hasSavedCredentials() {
+            switch context.biometryType {
+            case .touchID:
+                actionTitle = "Use TouchID"
+            case .faceID:
+                actionTitle = "Use FaceID"
+            case .none:
+                actionTitle = "Login"
+            }
+        }
+        else {
+            actionTitle = "Login"
+        }
+        
+        actionButton.setTitle(actionTitle, for: .normal)
+    }
+    
     private func update(for authState: AuthState) {
         isLoggedIn = authState == .loggedIn
         stackView?.isHidden = isLoggedIn
         avocadoLabel?.isHidden = !isLoggedIn
+        updateActionButtonTitle()
 
         switch authState {
         case .loggedIn:
@@ -178,6 +205,15 @@ class ViewController: UIViewController {
     }
 
     // MARK: Actions
+    
+    @objc private func actionButtonPressed() {
+        if hasBiometrics(for: .deviceOwnerAuthenticationWithBiometrics) {
+            attemptBiometrics()
+        }
+        else {
+            attemptLogin()
+        }
+    }
     
     @objc private func handleDoubleTap() {
         logOut()
@@ -205,6 +241,10 @@ class ViewController: UIViewController {
     
     private func attemptLogin() {
         guard let email = input(for: .email), let password = input(for: .password) else {
+            return
+        }
+        
+        guard email.count > 0 && password.count > 0 else {
             return
         }
         
@@ -275,12 +315,17 @@ class ViewController: UIViewController {
         }
     }
     
+    private func hasBiometrics(for policy: LAPolicy) -> Bool {
+        let context = LAContext()
+        return context.canEvaluatePolicy(policy, error: nil)
+    }
+    
     private func checkBiometrics(completion: @escaping (Bool) -> Void) {
         let context = LAContext()
         let reason = "App Authentication"
         let policy: LAPolicy = .deviceOwnerAuthenticationWithBiometrics
         
-        if context.canEvaluatePolicy(policy, error: nil) {
+        if hasBiometrics(for: policy) {
             context.evaluatePolicy(policy, localizedReason: reason) { success, error in
                 DispatchQueue.main.async {
                     completion(success)
